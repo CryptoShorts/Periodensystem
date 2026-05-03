@@ -1,0 +1,732 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Interaktives Periodensystem</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Outfit:wght@300;400;600;800&display=swap');
+
+  :root {
+    --bg: #0a0a0f;
+    --surface: #12121a;
+    --border: #1e1e2e;
+    --text: #e8e8f0;
+    --muted: #6b6b8a;
+    --accent: #00d4ff;
+    --glow: rgba(0,212,255,0.15);
+
+    --alkali: #ff6b6b;
+    --alkaline: #ffa94d;
+    --transition: #74c0fc;
+    --post-transition: #a9e34b;
+    --metalloid: #da77f2;
+    --nonmetal: #63e6be;
+    --halogen: #ffd43b;
+    --noble: #ff8787;
+    --lanthanide: #e599f7;
+    --actinide: #f783ac;
+    --unknown: #868e96;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Outfit', sans-serif;
+    min-height: 100vh;
+    overflow-x: auto;
+    padding: 20px;
+  }
+
+  body::before {
+    content: '';
+    position: fixed;
+    top: -50%;
+    left: -50%;
+    width: 200%;
+    height: 200%;
+    background: radial-gradient(ellipse at 30% 20%, rgba(0,212,255,0.04) 0%, transparent 60%),
+                radial-gradient(ellipse at 70% 80%, rgba(218,119,242,0.04) 0%, transparent 60%);
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .container { position: relative; z-index: 1; max-width: 1400px; margin: 0 auto; }
+
+  header {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    margin-bottom: 24px;
+    flex-wrap: wrap;
+    gap: 16px;
+  }
+
+  .title-block h1 {
+    font-family: 'Space Mono', monospace;
+    font-size: clamp(20px, 3vw, 36px);
+    font-weight: 700;
+    letter-spacing: -1px;
+    background: linear-gradient(135deg, var(--accent), #a78bfa);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+
+  .title-block p {
+    font-size: 13px;
+    color: var(--muted);
+    margin-top: 4px;
+    font-family: 'Space Mono', monospace;
+  }
+
+  .search-bar {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 8px 14px;
+    min-width: 220px;
+  }
+
+  .search-bar input {
+    background: none;
+    border: none;
+    outline: none;
+    color: var(--text);
+    font-family: 'Outfit', sans-serif;
+    font-size: 14px;
+    width: 100%;
+  }
+
+  .search-bar input::placeholder { color: var(--muted); }
+  .search-icon { color: var(--muted); font-size: 16px; }
+
+  .legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 20px;
+  }
+
+  .legend-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 11px;
+    color: var(--muted);
+    cursor: pointer;
+    padding: 4px 8px;
+    border-radius: 6px;
+    transition: background 0.2s;
+    border: 1px solid transparent;
+  }
+
+  .legend-item:hover { background: var(--surface); border-color: var(--border); }
+  .legend-item.active { background: var(--surface); border-color: var(--accent); color: var(--text); }
+
+  .legend-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 3px;
+    flex-shrink: 0;
+  }
+
+  .table-wrapper { overflow-x: auto; }
+
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(18, minmax(58px, 1fr));
+    gap: 3px;
+    min-width: 1060px;
+  }
+
+  .element {
+    aspect-ratio: 1;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 5px;
+    cursor: pointer;
+    position: relative;
+    transition: transform 0.15s, border-color 0.15s, box-shadow 0.15s, opacity 0.3s;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    overflow: hidden;
+  }
+
+  .element::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    opacity: 0;
+    border-radius: 7px;
+    transition: opacity 0.2s;
+    background: var(--el-color, var(--accent));
+  }
+
+  .element:hover {
+    transform: scale(1.12) translateZ(0);
+    z-index: 10;
+    border-color: var(--el-color, var(--accent));
+    box-shadow: 0 0 20px var(--el-glow, var(--glow)), 0 8px 24px rgba(0,0,0,0.4);
+  }
+
+  .element:hover::before { opacity: 0.08; }
+
+  .element.dimmed { opacity: 0.18; }
+  .element.highlighted { opacity: 1; border-color: var(--el-color, var(--accent)); box-shadow: 0 0 12px var(--el-glow, var(--glow)); }
+
+  .el-number {
+    font-family: 'Space Mono', monospace;
+    font-size: 9px;
+    color: var(--muted);
+    line-height: 1;
+  }
+
+  .el-symbol {
+    font-size: clamp(14px, 1.8vw, 20px);
+    font-weight: 800;
+    line-height: 1;
+    color: var(--el-color, var(--text));
+    text-align: center;
+    align-self: center;
+  }
+
+  .el-name {
+    font-size: 7px;
+    color: var(--muted);
+    text-align: center;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    line-height: 1;
+  }
+
+  .el-mass {
+    font-family: 'Space Mono', monospace;
+    font-size: 7px;
+    color: var(--muted);
+    text-align: right;
+    line-height: 1;
+  }
+
+  .empty { background: transparent; border-color: transparent; pointer-events: none; }
+  .spacer-label {
+    background: transparent;
+    border: 1px dashed #1e1e2e;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 9px;
+    color: #2a2a3e;
+    font-family: 'Space Mono', monospace;
+    pointer-events: none;
+  }
+
+  /* Modal */
+  .modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.7);
+    backdrop-filter: blur(8px);
+    z-index: 100;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s;
+  }
+
+  .modal-overlay.open { opacity: 1; pointer-events: all; }
+
+  .modal {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    width: 420px;
+    max-width: 90vw;
+    padding: 32px;
+    position: relative;
+    transform: scale(0.95) translateY(10px);
+    transition: transform 0.2s;
+    box-shadow: 0 40px 80px rgba(0,0,0,0.5);
+  }
+
+  .modal-overlay.open .modal { transform: scale(1) translateY(0); }
+
+  .modal-close {
+    position: absolute;
+    top: 16px;
+    right: 16px;
+    background: var(--border);
+    border: none;
+    color: var(--muted);
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 18px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.2s, color 0.2s;
+  }
+
+  .modal-close:hover { background: var(--accent); color: #000; }
+
+  .modal-header {
+    display: flex;
+    align-items: flex-start;
+    gap: 20px;
+    margin-bottom: 24px;
+  }
+
+  .modal-symbol-block {
+    width: 80px;
+    height: 80px;
+    border-radius: 14px;
+    border: 2px solid var(--el-color, var(--accent));
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    background: rgba(0,0,0,0.3);
+    box-shadow: 0 0 30px var(--el-glow, var(--glow));
+    position: relative;
+    overflow: hidden;
+  }
+
+  .modal-symbol-block::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: var(--el-color, var(--accent));
+    opacity: 0.08;
+  }
+
+  .modal-number { font-family: 'Space Mono', monospace; font-size: 11px; color: var(--muted); }
+  .modal-symbol { font-size: 36px; font-weight: 800; color: var(--el-color, var(--accent)); line-height: 1; }
+
+  .modal-title h2 { font-size: 24px; font-weight: 700; margin-bottom: 4px; }
+  .modal-title .category-badge {
+    display: inline-block;
+    padding: 3px 10px;
+    border-radius: 20px;
+    font-size: 11px;
+    font-weight: 600;
+    background: var(--el-color, var(--accent));
+    color: #000;
+    margin-bottom: 8px;
+  }
+  .modal-title .latin { font-size: 12px; color: var(--muted); font-style: italic; }
+
+  .props-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+  }
+
+  .prop-item {
+    background: rgba(255,255,255,0.03);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 10px 14px;
+  }
+
+  .prop-label { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 4px; }
+  .prop-value { font-family: 'Space Mono', monospace; font-size: 13px; font-weight: 700; color: var(--text); }
+
+  .modal-desc {
+    margin-top: 16px;
+    font-size: 13px;
+    color: var(--muted);
+    line-height: 1.6;
+    border-top: 1px solid var(--border);
+    padding-top: 16px;
+  }
+
+  .period-label, .group-label {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'Space Mono', monospace;
+    font-size: 9px;
+    color: #2a2a3e;
+  }
+
+  .lanthanide-bar, .actinide-bar {
+    margin-top: 6px;
+  }
+</style>
+</head>
+<body>
+<div class="container">
+  <header>
+    <div class="title-block">
+      <h1>Periodensystem</h1>
+      <p>// 118 Elemente · Interaktiv</p>
+    </div>
+    <div class="search-bar">
+      <span class="search-icon">⌕</span>
+      <input type="text" id="search" placeholder="Element suchen..." autocomplete="off">
+    </div>
+  </header>
+
+  <div class="legend" id="legend"></div>
+  <div class="table-wrapper">
+    <div class="grid" id="grid"></div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modal-overlay">
+  <div class="modal" id="modal">
+    <button class="modal-close" id="modal-close">×</button>
+    <div class="modal-header">
+      <div class="modal-symbol-block" id="m-symbol-block">
+        <span class="modal-number" id="m-number"></span>
+        <span class="modal-symbol" id="m-symbol"></span>
+      </div>
+      <div class="modal-title">
+        <div class="category-badge" id="m-badge"></div>
+        <h2 id="m-name"></h2>
+        <div class="latin" id="m-latin"></div>
+      </div>
+    </div>
+    <div class="props-grid">
+      <div class="prop-item"><div class="prop-label">Atommasse</div><div class="prop-value" id="m-mass"></div></div>
+      <div class="prop-item"><div class="prop-label">Gruppe / Periode</div><div class="prop-value" id="m-gp"></div></div>
+      <div class="prop-item"><div class="prop-label">Elektronenkonfiguration</div><div class="prop-value" id="m-config" style="font-size:10px"></div></div>
+      <div class="prop-item"><div class="prop-label">Aggregatzustand (25°C)</div><div class="prop-value" id="m-state"></div></div>
+      <div class="prop-item"><div class="prop-label">Schmelzpunkt</div><div class="prop-value" id="m-melt"></div></div>
+      <div class="prop-item"><div class="prop-label">Siedepunkt</div><div class="prop-value" id="m-boil"></div></div>
+    </div>
+    <div class="modal-desc" id="m-desc"></div>
+  </div>
+</div>
+
+<script>
+const CATEGORIES = {
+  'alkali': { label: 'Alkalimetalle', color: '#ff6b6b' },
+  'alkaline': { label: 'Erdalkalimetalle', color: '#ffa94d' },
+  'transition': { label: 'Übergangsmetalle', color: '#74c0fc' },
+  'post-transition': { label: 'Metalle', color: '#a9e34b' },
+  'metalloid': { label: 'Halbmetalle', color: '#da77f2' },
+  'nonmetal': { label: 'Nichtmetalle', color: '#63e6be' },
+  'halogen': { label: 'Halogene', color: '#ffd43b' },
+  'noble': { label: 'Edelgase', color: '#ff8787' },
+  'lanthanide': { label: 'Lanthanoide', color: '#e599f7' },
+  'actinide': { label: 'Actinoide', color: '#f783ac' },
+  'unknown': { label: 'Unbekannt', color: '#868e96' },
+};
+
+const ELEMENTS = [
+  {n:1,sym:'H',name:'Wasserstoff',latin:'Hydrogenium',cat:'nonmetal',mass:'1.008',group:1,period:1,config:'1s¹',state:'Gas',melt:'-259°C',boil:'-253°C',desc:'Das leichteste und häufigste Element im Universum. Wasserstoff macht etwa 75% der normalen Materie aus und ist der Hauptbrennstoff der Sterne.'},
+  {n:2,sym:'He',name:'Helium',latin:'Helium',cat:'noble',mass:'4.003',group:18,period:1,config:'1s²',state:'Gas',melt:'—',boil:'-269°C',desc:'Das zweithäufigste Element im Universum, benannt nach dem griechischen Sonnengott Helios. Inert und nicht brennbar.'},
+  {n:3,sym:'Li',name:'Lithium',latin:'Lithium',cat:'alkali',mass:'6.941',group:1,period:2,config:'[He] 2s¹',state:'Fest',melt:'180°C',boil:'1342°C',desc:'Leichtestes festes Element. Wichtig für Lithium-Ionen-Akkus in Elektrofahrzeugen und mobilen Geräten.'},
+  {n:4,sym:'Be',name:'Beryllium',latin:'Beryllium',cat:'alkaline',mass:'9.012',group:2,period:2,config:'[He] 2s²',state:'Fest',melt:'1287°C',boil:'2469°C',desc:'Leichtes, steifes Metall. Wird in Luft- und Raumfahrtanwendungen sowie in Kernreaktoren eingesetzt.'},
+  {n:5,sym:'B',name:'Bor',latin:'Borum',cat:'metalloid',mass:'10.81',group:13,period:2,config:'[He] 2s²2p¹',state:'Fest',melt:'2075°C',boil:'4000°C',desc:'Halbmetall, das in der Natur nicht elementar vorkommt. Wichtig für Glas, Keramik und Halbleiter.'},
+  {n:6,sym:'C',name:'Kohlenstoff',latin:'Carboneum',cat:'nonmetal',mass:'12.011',group:14,period:2,config:'[He] 2s²2p²',state:'Fest',melt:'3550°C',boil:'4027°C',desc:'Basis aller organischen Verbindungen. Vorkommend als Diamant, Graphit und Fulleren.'},
+  {n:7,sym:'N',name:'Stickstoff',latin:'Nitrogenium',cat:'nonmetal',mass:'14.007',group:15,period:2,config:'[He] 2s²2p³',state:'Gas',melt:'-210°C',boil:'-196°C',desc:'Macht ca. 78% der Erdatmosphäre aus. Essenziell für alle Aminosäuren und Proteine.'},
+  {n:8,sym:'O',name:'Sauerstoff',latin:'Oxygenium',cat:'nonmetal',mass:'15.999',group:16,period:2,config:'[He] 2s²2p⁴',state:'Gas',melt:'-218°C',boil:'-183°C',desc:'Notwendig für die Atmung der meisten Lebewesen. Dritthäufigstes Element im Universum.'},
+  {n:9,sym:'F',name:'Fluor',latin:'Fluorum',cat:'halogen',mass:'18.998',group:17,period:2,config:'[He] 2s²2p⁵',state:'Gas',melt:'-220°C',boil:'-188°C',desc:'Reaktivstes aller Elemente. Wird in Zahnpasta (Fluorid) und Teflon-Beschichtungen verwendet.'},
+  {n:10,sym:'Ne',name:'Neon',latin:'Neon',cat:'noble',mass:'20.180',group:18,period:2,config:'[He] 2s²2p⁶',state:'Gas',melt:'-249°C',boil:'-246°C',desc:'Bekannt für seine charakteristische rote Leuchtemission in Neonröhren. Chemisch inert.'},
+  {n:11,sym:'Na',name:'Natrium',latin:'Natrium',cat:'alkali',mass:'22.990',group:1,period:3,config:'[Ne] 3s¹',state:'Fest',melt:'98°C',boil:'883°C',desc:'Weiches Metall, reagiert heftig mit Wasser. Als Natriumchlorid (Kochsalz) lebensnotwendig.'},
+  {n:12,sym:'Mg',name:'Magnesium',latin:'Magnesium',cat:'alkaline',mass:'24.305',group:2,period:3,config:'[Ne] 3s²',state:'Fest',melt:'650°C',boil:'1090°C',desc:'Leichtes Strukturmetall, wichtig in der Luft- und Automobilindustrie. Zentralatom im Chlorophyll.'},
+  {n:13,sym:'Al',name:'Aluminium',latin:'Aluminium',cat:'post-transition',mass:'26.982',group:13,period:3,config:'[Ne] 3s²3p¹',state:'Fest',melt:'660°C',boil:'2519°C',desc:'Leichtestes technisches Metall, gut recyclebar. Das häufigste Metall in der Erdkruste.'},
+  {n:14,sym:'Si',name:'Silizium',latin:'Silicium',cat:'metalloid',mass:'28.085',group:14,period:3,config:'[Ne] 3s²3p²',state:'Fest',melt:'1414°C',boil:'3265°C',desc:'Basis der modernen Halbleiterindustrie. Zweithäufigstes Element in der Erdkruste nach Sauerstoff.'},
+  {n:15,sym:'P',name:'Phosphor',latin:'Phosphorus',cat:'nonmetal',mass:'30.974',group:15,period:3,config:'[Ne] 3s²3p³',state:'Fest',melt:'44°C',boil:'280°C',desc:'Essenziell für DNA, RNA und ATP. Weißer Phosphor ist hochgiftig und selbstentzündlich.'},
+  {n:16,sym:'S',name:'Schwefel',latin:'Sulphur',cat:'nonmetal',mass:'32.06',group:16,period:3,config:'[Ne] 3s²3p⁴',state:'Fest',melt:'115°C',boil:'445°C',desc:'Bekannt für seinen charakteristischen Geruch bei Vulkanen. Wichtig für viele Industrieprozesse.'},
+  {n:17,sym:'Cl',name:'Chlor',latin:'Chlorum',cat:'halogen',mass:'35.45',group:17,period:3,config:'[Ne] 3s²3p⁵',state:'Gas',melt:'-101°C',boil:'-34°C',desc:'Wichtiges Desinfektionsmittel für Trinkwasser. Als Chlorid in Kochsalz lebensnotwendig.'},
+  {n:18,sym:'Ar',name:'Argon',latin:'Argon',cat:'noble',mass:'39.948',group:18,period:3,config:'[Ne] 3s²3p⁶',state:'Gas',melt:'-189°C',boil:'-186°C',desc:'Häufigstes Edelgas in der Erdatmosphäre. Wird als Schutzgas beim Schweißen verwendet.'},
+  {n:19,sym:'K',name:'Kalium',latin:'Kalium',cat:'alkali',mass:'39.098',group:1,period:4,config:'[Ar] 4s¹',state:'Fest',melt:'63°C',boil:'759°C',desc:'Wichtiges Mineral für die menschliche Gesundheit, besonders für die Herzfunktion.'},
+  {n:20,sym:'Ca',name:'Calcium',latin:'Calcium',cat:'alkaline',mass:'40.078',group:2,period:4,config:'[Ar] 4s²',state:'Fest',melt:'842°C',boil:'1484°C',desc:'Wichtigstes Mineral für Knochen und Zähne. Häufigstes Metall im menschlichen Körper.'},
+  {n:21,sym:'Sc',name:'Scandium',latin:'Scandium',cat:'transition',mass:'44.956',group:3,period:4,config:'[Ar] 3d¹4s²',state:'Fest',melt:'1541°C',boil:'2836°C',desc:'Seltenes Übergangsmetall. Wird in Sportgeräten und Hochleistungslegierungen eingesetzt.'},
+  {n:22,sym:'Ti',name:'Titan',latin:'Titanium',cat:'transition',mass:'47.867',group:4,period:4,config:'[Ar] 3d²4s²',state:'Fest',melt:'1668°C',boil:'3287°C',desc:'Leichtes, extrem starkes und korrosionsbeständiges Metall. Unverzichtbar in der Luft- und Raumfahrt.'},
+  {n:23,sym:'V',name:'Vanadium',latin:'Vanadium',cat:'transition',mass:'50.942',group:5,period:4,config:'[Ar] 3d³4s²',state:'Fest',melt:'1910°C',boil:'3407°C',desc:'Wird zur Härtung von Stahl verwendet. In Vanadium-Redox-Batterien für Energiespeicherung.'},
+  {n:24,sym:'Cr',name:'Chrom',latin:'Chromium',cat:'transition',mass:'51.996',group:6,period:4,config:'[Ar] 3d⁵4s¹',state:'Fest',melt:'1907°C',boil:'2671°C',desc:'Glänzendes Metall für Edelstahl und dekorative Beschichtungen. Trägt zum grünen Smaragd bei.'},
+  {n:25,sym:'Mn',name:'Mangan',latin:'Manganum',cat:'transition',mass:'54.938',group:7,period:4,config:'[Ar] 3d⁵4s²',state:'Fest',melt:'1246°C',boil:'2061°C',desc:'Wichtige Legierungskomponente für Stahl. Essenziell für viele Enzymreaktionen im Körper.'},
+  {n:26,sym:'Fe',name:'Eisen',latin:'Ferrum',cat:'transition',mass:'55.845',group:8,period:4,config:'[Ar] 3d⁶4s²',state:'Fest',melt:'1538°C',boil:'2861°C',desc:'Häufigstes Element der Erde (nach Masse). Basis der Stahlindustrie. Im Hämoglobin für Sauerstofftransport.'},
+  {n:27,sym:'Co',name:'Cobalt',latin:'Cobaltum',cat:'transition',mass:'58.933',group:9,period:4,config:'[Ar] 3d⁷4s²',state:'Fest',melt:'1495°C',boil:'2927°C',desc:'Magnetisches Metall für Lithium-Ionen-Batterien. Gibt Glas und Keramik ein tiefes Blau.'},
+  {n:28,sym:'Ni',name:'Nickel',latin:'Niccolum',cat:'transition',mass:'58.693',group:10,period:4,config:'[Ar] 3d⁸4s²',state:'Fest',melt:'1455°C',boil:'2913°C',desc:'Korrosionsbeständiges Metall für Münzen und Edelstahllegierungen. Häufig in Catalysatoren.'},
+  {n:29,sym:'Cu',name:'Kupfer',latin:'Cuprum',cat:'transition',mass:'63.546',group:11,period:4,config:'[Ar] 3d¹⁰4s¹',state:'Fest',melt:'1085°C',boil:'2562°C',desc:'Exzellenter elektrischer Leiter. Eines der ersten vom Menschen genutzten Metalle. Basis der Bronze.'},
+  {n:30,sym:'Zn',name:'Zink',latin:'Zincum',cat:'transition',mass:'65.38',group:12,period:4,config:'[Ar] 3d¹⁰4s²',state:'Fest',melt:'420°C',boil:'907°C',desc:'Wichtig für das Immunsystem. Wird zur Galvanisierung von Stahl und in Batterien eingesetzt.'},
+  {n:31,sym:'Ga',name:'Gallium',latin:'Gallium',cat:'post-transition',mass:'69.723',group:13,period:4,config:'[Ar] 3d¹⁰4s²4p¹',state:'Fest',melt:'30°C',boil:'2204°C',desc:'Schmilzt bei Körpertemperatur (30°C). Wichtig für Halbleiter wie GaN in LEDs.'},
+  {n:32,sym:'Ge',name:'Germanium',latin:'Germanium',cat:'metalloid',mass:'72.630',group:14,period:4,config:'[Ar] 3d¹⁰4s²4p²',state:'Fest',melt:'938°C',boil:'2833°C',desc:'Halbleiter, wichtig für Transistoren und Glasfaserkabel. Von Mendeleev vorhergesagt.'},
+  {n:33,sym:'As',name:'Arsen',latin:'Arsenicum',cat:'metalloid',mass:'74.922',group:15,period:4,config:'[Ar] 3d¹⁰4s²4p³',state:'Fest',melt:'817°C',boil:'614°C',desc:'Bekanntes Gift, historisch als "Königsgift" verwendet. In kleinen Mengen für Halbleiter genutzt.'},
+  {n:34,sym:'Se',name:'Selen',latin:'Selenium',cat:'nonmetal',mass:'78.971',group:16,period:4,config:'[Ar] 3d¹⁰4s²4p⁴',state:'Fest',melt:'221°C',boil:'685°C',desc:'Wichtiges Spurenelement für den Menschen. In Solarzellen und Kopierertrommeln verwendet.'},
+  {n:35,sym:'Br',name:'Brom',latin:'Bromum',cat:'halogen',mass:'79.904',group:17,period:4,config:'[Ar] 3d¹⁰4s²4p⁵',state:'Flüssig',melt:'-7°C',boil:'59°C',desc:'Eines von nur zwei flüssigen Elementen bei Raumtemperatur. Wird in Flammhemmern eingesetzt.'},
+  {n:36,sym:'Kr',name:'Krypton',latin:'Krypton',cat:'noble',mass:'83.798',group:18,period:4,config:'[Ar] 3d¹⁰4s²4p⁶',state:'Gas',melt:'-157°C',boil:'-153°C',desc:'Seltenes Edelgas. Früher verwendete internationale Längenmaßdefinition basierte auf Kr-86.'},
+  {n:37,sym:'Rb',name:'Rubidium',latin:'Rubidium',cat:'alkali',mass:'85.468',group:1,period:5,config:'[Kr] 5s¹',state:'Fest',melt:'39°C',boil:'688°C',desc:'Weichere Alkalimet all mit violett-rotem Spektrum. Wird in Atomuhren und Laserphysik eingesetzt.'},
+  {n:38,sym:'Sr',name:'Strontium',latin:'Strontium',cat:'alkaline',mass:'87.62',group:2,period:5,config:'[Kr] 5s²',state:'Fest',melt:'777°C',boil:'1382°C',desc:'Erzeugt leuchtend rote Farben in Feuerwerkskörpern. Sr-90 ist radioaktiver Fallout-Bestandteil.'},
+  {n:39,sym:'Y',name:'Yttrium',latin:'Yttrium',cat:'transition',mass:'88.906',group:3,period:5,config:'[Kr] 4d¹5s²',state:'Fest',melt:'1522°C',boil:'3345°C',desc:'Wichtig für Leuchtstoffe in Bildschirmen. Wird in Hochtemperatursupraleitern eingesetzt.'},
+  {n:40,sym:'Zr',name:'Zirconium',latin:'Zirconium',cat:'transition',mass:'91.224',group:4,period:5,config:'[Kr] 4d²5s²',state:'Fest',melt:'1855°C',boil:'4409°C',desc:'Extrem korrosionsbeständig, wichtig in Kernreaktoren als Hüllmaterial für Brennstäbe.'},
+  {n:41,sym:'Nb',name:'Niob',latin:'Niobium',cat:'transition',mass:'92.906',group:5,period:5,config:'[Kr] 4d⁴5s¹',state:'Fest',melt:'2477°C',boil:'4744°C',desc:'Supraleitendes Metall bei Tieftemperaturen. Wichtig für MRT-Magnete und Hochleistungsstähle.'},
+  {n:42,sym:'Mo',name:'Molybdän',latin:'Molybdaenum',cat:'transition',mass:'95.95',group:6,period:5,config:'[Kr] 4d⁵5s¹',state:'Fest',melt:'2623°C',boil:'4639°C',desc:'Hochschmelzendes Metall für Stahllegierungen. Essenziell für Stickstoff-fixierende Enzyme.'},
+  {n:43,sym:'Tc',name:'Technetium',latin:'Technetium',cat:'transition',mass:'(98)',group:7,period:5,config:'[Kr] 4d⁵5s²',state:'Fest',melt:'2157°C',boil:'4265°C',desc:'Erstes künstlich hergestelltes Element. Nur radioaktive Isotope. Wichtig in der Nuklearmedizin.'},
+  {n:44,sym:'Ru',name:'Ruthenium',latin:'Ruthenium',cat:'transition',mass:'101.07',group:8,period:5,config:'[Kr] 4d⁷5s¹',state:'Fest',melt:'2334°C',boil:'4150°C',desc:'Seltenes Platingruppenmetall. Wird in Elektronik und als Katalysator eingesetzt.'},
+  {n:45,sym:'Rh',name:'Rhodium',latin:'Rhodium',cat:'transition',mass:'102.91',group:9,period:5,config:'[Kr] 4d⁸5s¹',state:'Fest',melt:'1964°C',boil:'3695°C',desc:'Sehr seltenes und teures Edelmetall. Wichtig für Katalysatoren in Fahrzeugen.'},
+  {n:46,sym:'Pd',name:'Palladium',latin:'Palladium',cat:'transition',mass:'106.42',group:10,period:5,config:'[Kr] 4d¹⁰',state:'Fest',melt:'1555°C',boil:'2963°C',desc:'Katalytisch aktives Edelmetall. Kann das 900-fache seines Volumens an Wasserstoff absorbieren.'},
+  {n:47,sym:'Ag',name:'Silber',latin:'Argentum',cat:'transition',mass:'107.87',group:11,period:5,config:'[Kr] 4d¹⁰5s¹',state:'Fest',melt:'962°C',boil:'2162°C',desc:'Bester elektrischer Leiter aller Elemente. Seit Jahrtausenden als Währung und Schmuck genutzt.'},
+  {n:48,sym:'Cd',name:'Cadmium',latin:'Cadmium',cat:'transition',mass:'112.41',group:12,period:5,config:'[Kr] 4d¹⁰5s²',state:'Fest',melt:'321°C',boil:'767°C',desc:'Giftiges Schwermetall. Früher in Ni-Cd-Batterien und Farbpigmenten verwendet.'},
+  {n:49,sym:'In',name:'Indium',latin:'Indium',cat:'post-transition',mass:'114.82',group:13,period:5,config:'[Kr] 4d¹⁰5s²5p¹',state:'Fest',melt:'157°C',boil:'2072°C',desc:'Weiches Metall für transparente Elektroden (ITO) in Bildschirmen und Touchscreens.'},
+  {n:50,sym:'Sn',name:'Zinn',latin:'Stannum',cat:'post-transition',mass:'118.71',group:14,period:5,config:'[Kr] 4d¹⁰5s²5p²',state:'Fest',melt:'232°C',boil:'2602°C',desc:'Eines der ersten vom Menschen genutzten Metalle. Basis der Bronze-Legierung mit Kupfer.'},
+  {n:51,sym:'Sb',name:'Antimon',latin:'Stibium',cat:'metalloid',mass:'121.76',group:15,period:5,config:'[Kr] 4d¹⁰5s²5p³',state:'Fest',melt:'631°C',boil:'1587°C',desc:'Seit der Antike bekannt. Wird in Flammschutzmitteln und Halbleitern eingesetzt.'},
+  {n:52,sym:'Te',name:'Tellur',latin:'Tellurium',cat:'metalloid',mass:'127.60',group:16,period:5,config:'[Kr] 4d¹⁰5s²5p⁴',state:'Fest',melt:'450°C',boil:'988°C',desc:'Seltenes Halbmetall. Wichtig für Cadmiumtellurid-Solarzellen und thermoelektrische Geräte.'},
+  {n:53,sym:'I',name:'Iod',latin:'Iodium',cat:'halogen',mass:'126.90',group:17,period:5,config:'[Kr] 4d¹⁰5s²5p⁵',state:'Fest',melt:'114°C',boil:'184°C',desc:'Essenzielles Spurenelement für die Schilddrüsenfunktion. Als Desinfektionsmittel genutzt.'},
+  {n:54,sym:'Xe',name:'Xenon',latin:'Xenon',cat:'noble',mass:'131.29',group:18,period:5,config:'[Kr] 4d¹⁰5s²5p⁶',state:'Gas',melt:'-112°C',boil:'-108°C',desc:'Schweres Edelgas. Verwendet in Xenon-Lampen, Ionentriebwerken und Anästhetika.'},
+  {n:55,sym:'Cs',name:'Caesium',latin:'Caesium',cat:'alkali',mass:'132.91',group:1,period:6,config:'[Xe] 6s¹',state:'Fest',melt:'28°C',boil:'671°C',desc:'Weichstes Metall, schmilzt knapp über Raumtemperatur. Basis der präzisesten Atomuhren der Welt.'},
+  {n:56,sym:'Ba',name:'Barium',latin:'Barium',cat:'alkaline',mass:'137.33',group:2,period:6,config:'[Xe] 6s²',state:'Fest',melt:'727°C',boil:'1897°C',desc:'Erzeugt grüne Farben in Feuerwerken. Als Bariumsulfat in der Röntgendiagnostik verwendet.'},
+  // Lanthanides
+  {n:57,sym:'La',name:'Lanthan',latin:'Lanthanum',cat:'lanthanide',mass:'138.91',group:3,period:6,config:'[Xe] 5d¹6s²',state:'Fest',melt:'920°C',boil:'3464°C',desc:'Namensgeber der Lanthanoid-Gruppe. Wird in Kameragläsern und Hybridfahrzeugbatterien eingesetzt.'},
+  {n:58,sym:'Ce',name:'Cer',latin:'Cerium',cat:'lanthanide',mass:'140.12',group:3,period:6,config:'[Xe] 4f¹5d¹6s²',state:'Fest',melt:'798°C',boil:'3443°C',desc:'Häufigstes Seltenerdmetall. Wird in Katalysatoren, Poliermitteln und UV-Filtern eingesetzt.'},
+  {n:59,sym:'Pr',name:'Praseodym',latin:'Praseodymium',cat:'lanthanide',mass:'140.91',group:3,period:6,config:'[Xe] 4f³6s²',state:'Fest',melt:'931°C',boil:'3520°C',desc:'Grün-gelbes Seltenerdmetall. Wichtig für Hochleistungsmagnete und Schutzgläser für Schweißer.'},
+  {n:60,sym:'Nd',name:'Neodym',latin:'Neodymium',cat:'lanthanide',mass:'144.24',group:3,period:6,config:'[Xe] 4f⁴6s²',state:'Fest',melt:'1016°C',boil:'3074°C',desc:'Basis der stärksten Permanentmagnete (NdFeB). Unverzichtbar für Elektromotoren und Windturbinen.'},
+  {n:61,sym:'Pm',name:'Promethium',latin:'Promethium',cat:'lanthanide',mass:'(145)',group:3,period:6,config:'[Xe] 4f⁵6s²',state:'Fest',melt:'1042°C',boil:'3000°C',desc:'Einziges radioaktives Lanthanoid ohne stabile Isotope. Benannt nach dem Titan Prometheus.'},
+  {n:62,sym:'Sm',name:'Samarium',latin:'Samarium',cat:'lanthanide',mass:'150.36',group:3,period:6,config:'[Xe] 4f⁶6s²',state:'Fest',melt:'1072°C',boil:'1900°C',desc:'Wichtig für SmCo-Permanentmagnete, die bei hohen Temperaturen stabil bleiben.'},
+  {n:63,sym:'Eu',name:'Europium',latin:'Europium',cat:'lanthanide',mass:'151.96',group:3,period:6,config:'[Xe] 4f⁷6s²',state:'Fest',melt:'822°C',boil:'1529°C',desc:'Leuchtet rot und blau in Leuchtstoffen. Wird in Euro-Banknoten als Sicherheitsmerkmal eingesetzt.'},
+  {n:64,sym:'Gd',name:'Gadolinium',latin:'Gadolinium',cat:'lanthanide',mass:'157.25',group:3,period:6,config:'[Xe] 4f⁷5d¹6s²',state:'Fest',melt:'1313°C',boil:'3273°C',desc:'Kontrastmittel für MRT-Untersuchungen. Hat ungewöhnlich hohe magnetische Suszeptibilität.'},
+  {n:65,sym:'Tb',name:'Terbium',latin:'Terbium',cat:'lanthanide',mass:'158.93',group:3,period:6,config:'[Xe] 4f⁹6s²',state:'Fest',melt:'1356°C',boil:'3230°C',desc:'Grüner Leuchtstoff in Bildschirmen. Wichtig für energiesparende Fluoreszenzlampen.'},
+  {n:66,sym:'Dy',name:'Dysprosium',latin:'Dysprosium',cat:'lanthanide',mass:'162.50',group:3,period:6,config:'[Xe] 4f¹⁰6s²',state:'Fest',melt:'1412°C',boil:'2567°C',desc:'Kritisches Metall für Neodym-Magnete bei hohen Temperaturen, z.B. in Elektroautos.'},
+  {n:67,sym:'Ho',name:'Holmium',latin:'Holmium',cat:'lanthanide',mass:'164.93',group:3,period:6,config:'[Xe] 4f¹¹6s²',state:'Fest',melt:'1474°C',boil:'2700°C',desc:'Stärkste bekannte magnetische Suszeptibilität aller Elemente. Für medizinische Lasersysteme.'},
+  {n:68,sym:'Er',name:'Erbium',latin:'Erbium',cat:'lanthanide',mass:'167.26',group:3,period:6,config:'[Xe] 4f¹²6s²',state:'Fest',melt:'1529°C',boil:'2868°C',desc:'Essenziell für Glasfaserverstärker in der Telekommunikation. Rosa-violette Farbe in Glas.'},
+  {n:69,sym:'Tm',name:'Thulium',latin:'Thulium',cat:'lanthanide',mass:'168.93',group:3,period:6,config:'[Xe] 4f¹³6s²',state:'Fest',melt:'1545°C',boil:'1950°C',desc:'Seltenste der stabilen Lanthanoide. Tm-170 wird in portablen Röntgengeräten eingesetzt.'},
+  {n:70,sym:'Yb',name:'Ytterbium',latin:'Ytterbium',cat:'lanthanide',mass:'173.04',group:3,period:6,config:'[Xe] 4f¹⁴6s²',state:'Fest',melt:'824°C',boil:'1196°C',desc:'Wird in den präzisesten Atomuhren der Welt eingesetzt. Dient auch als Lasermaterial.'},
+  {n:71,sym:'Lu',name:'Lutetium',latin:'Lutetium',cat:'lanthanide',mass:'174.97',group:3,period:6,config:'[Xe] 4f¹⁴5d¹6s²',state:'Fest',melt:'1663°C',boil:'3402°C',desc:'Schwerste und seltenste stabile Lanthanoid. In PET-Scanner-Kristallen und Katalysatoren.'},
+  // Period 6 (after lanthanides)
+  {n:72,sym:'Hf',name:'Hafnium',latin:'Hafnium',cat:'transition',mass:'178.49',group:4,period:6,config:'[Xe] 4f¹⁴5d²6s²',state:'Fest',melt:'2233°C',boil:'4603°C',desc:'Extrem schwer von Zirconium zu trennen. Wichtig für Kernreaktoren und Halbleiter.'},
+  {n:73,sym:'Ta',name:'Tantal',latin:'Tantalum',cat:'transition',mass:'180.95',group:5,period:6,config:'[Xe] 4f¹⁴5d³6s²',state:'Fest',melt:'3017°C',boil:'5458°C',desc:'Dritthöchster Schmelzpunkt aller Elemente. Wichtig für Kondensatoren in Elektronik.'},
+  {n:74,sym:'W',name:'Wolfram',latin:'Wolframium',cat:'transition',mass:'183.84',group:6,period:6,config:'[Xe] 4f¹⁴5d⁴6s²',state:'Fest',melt:'3422°C',boil:'5555°C',desc:'Höchster Schmelzpunkt aller Elemente. Wird in Glühlampenfilamenten und Schneidwerkzeugen verwendet.'},
+  {n:75,sym:'Re',name:'Rhenium',latin:'Rhenium',cat:'transition',mass:'186.21',group:7,period:6,config:'[Xe] 4f¹⁴5d⁵6s²',state:'Fest',melt:'3186°C',boil:'5596°C',desc:'Zweithöchster Schmelzpunkt. Letztes stabiles Element entdeckt (1925). Für Jet-Triebwerke.'},
+  {n:76,sym:'Os',name:'Osmium',latin:'Osmium',cat:'transition',mass:'190.23',group:8,period:6,config:'[Xe] 4f¹⁴5d⁶6s²',state:'Fest',melt:'3033°C',boil:'5012°C',desc:'Dichtestes aller natürlichen Elemente (22,6 g/cm³). Der Geruch von OsO₄ gab ihm seinen Namen.'},
+  {n:77,sym:'Ir',name:'Iridium',latin:'Iridium',cat:'transition',mass:'192.22',group:9,period:6,config:'[Xe] 4f¹⁴5d⁷6s²',state:'Fest',melt:'2446°C',boil:'4428°C',desc:'Korrosionsbeständigstes Metall. Anomalie in der Kreide-Paläogen-Schicht deutet auf Asteroideneinschlag.'},
+  {n:78,sym:'Pt',name:'Platin',latin:'Platinum',cat:'transition',mass:'195.08',group:10,period:6,config:'[Xe] 4f¹⁴5d⁹6s¹',state:'Fest',melt:'1768°C',boil:'3825°C',desc:'Kostbares Edelmetall für Schmuck und Katalysatoren. Wird in Krebsmedikamenten (Cisplatin) eingesetzt.'},
+  {n:79,sym:'Au',name:'Gold',latin:'Aurum',cat:'transition',mass:'196.97',group:11,period:6,config:'[Xe] 4f¹⁴5d¹⁰6s¹',state:'Fest',melt:'1064°C',boil:'2856°C',desc:'Symbol für Reichtum seit Jahrtausenden. Exzellenter Leiter, korrosionsbeständig, für Elektronik.'},
+  {n:80,sym:'Hg',name:'Quecksilber',latin:'Hydrargyrum',cat:'transition',mass:'200.59',group:12,period:6,config:'[Xe] 4f¹⁴5d¹⁰6s²',state:'Flüssig',melt:'-39°C',boil:'357°C',desc:'Einziges flüssiges Metall bei Raumtemperatur. Historisch in Thermometern, heute stark eingeschränkt.'},
+  {n:81,sym:'Tl',name:'Thallium',latin:'Thallium',cat:'post-transition',mass:'204.38',group:13,period:6,config:'[Xe] 4f¹⁴5d¹⁰6s²6p¹',state:'Fest',melt:'304°C',boil:'1473°C',desc:'Hochtoxisches Schwermetall. Historisch als Rattengift verwendet, heute für Infrarot-Optik.'},
+  {n:82,sym:'Pb',name:'Blei',latin:'Plumbum',cat:'post-transition',mass:'207.2',group:14,period:6,config:'[Xe] 4f¹⁴5d¹⁰6s²6p²',state:'Fest',melt:'327°C',boil:'1749°C',desc:'Seit der Antike bekannt. Wird heute vor allem in Bleiakkumulatoren und Strahlenschutz eingesetzt.'},
+  {n:83,sym:'Bi',name:'Wismut',latin:'Bismuthum',cat:'post-transition',mass:'208.98',group:15,period:6,config:'[Xe] 4f¹⁴5d¹⁰6s²6p³',state:'Fest',melt:'271°C',boil:'1564°C',desc:'Schwerstes stabiles Element. Nicht radioaktiv und weitgehend ungiftig. Für Kosmetik und Medizin.'},
+  {n:84,sym:'Po',name:'Polonium',latin:'Polonium',cat:'post-transition',mass:'(209)',group:16,period:6,config:'[Xe] 4f¹⁴5d¹⁰6s²6p⁴',state:'Fest',melt:'254°C',boil:'962°C',desc:'Stark radioaktives Element, entdeckt von Marie Curie. Extrem giftig durch Alpha-Strahlung.'},
+  {n:85,sym:'At',name:'Astat',latin:'Astatinum',cat:'halogen',mass:'(210)',group:17,period:6,config:'[Xe] 4f¹⁴5d¹⁰6s²6p⁵',state:'Fest',melt:'302°C',boil:'337°C',desc:'Seltenste natürlich vorkommende Element. Radioaktiv, in der Strahlentherapie erforscht.'},
+  {n:86,sym:'Rn',name:'Radon',latin:'Radon',cat:'noble',mass:'(222)',group:18,period:6,config:'[Xe] 4f¹⁴5d¹⁰6s²6p⁶',state:'Gas',melt:'-71°C',boil:'-62°C',desc:'Radioaktives Edelgas aus Uranzerfall. Zweitgrößter Verursacher von Lungenkrebs durch Hausluft.'},
+  // Period 7
+  {n:87,sym:'Fr',name:'Francium',latin:'Francium',cat:'alkali',mass:'(223)',group:1,period:7,config:'[Rn] 7s¹',state:'Fest',melt:'27°C',boil:'677°C',desc:'Instabilstes und seltenste natürliche Element. So radioaktiv, dass kaum Eigenschaften messbar.'},
+  {n:88,sym:'Ra',name:'Radium',latin:'Radium',cat:'alkaline',mass:'(226)',group:2,period:7,config:'[Rn] 7s²',state:'Fest',melt:'700°C',boil:'1737°C',desc:'Stark radioaktives Erdalkalimetall. Von Marie und Pierre Curie entdeckt. Historisch in Leuchtfarben.'},
+  // Actinides
+  {n:89,sym:'Ac',name:'Actinium',latin:'Actinium',cat:'actinide',mass:'(227)',group:3,period:7,config:'[Rn] 6d¹7s²',state:'Fest',melt:'1050°C',boil:'3200°C',desc:'Namensgeber der Actinoid-Gruppe. Stark radioaktiv und lumineszierend. Für Neutronenquellen genutzt.'},
+  {n:90,sym:'Th',name:'Thorium',latin:'Thorium',cat:'actinide',mass:'232.04',group:3,period:7,config:'[Rn] 6d²7s²',state:'Fest',melt:'1750°C',boil:'4788°C',desc:'Häufigstes Actinoid in der Erdkruste. Möglicher zukünftiger Kernbrennstoff als Alternative zu Uran.'},
+  {n:91,sym:'Pa',name:'Protactinium',latin:'Protactinium',cat:'actinide',mass:'231.04',group:3,period:7,config:'[Rn] 5f²6d¹7s²',state:'Fest',melt:'1568°C',boil:'4027°C',desc:'Radioaktives Übergangsprodukt im Thorium-Zerfallsreihe. Extrem selten und giftig.'},
+  {n:92,sym:'U',name:'Uran',latin:'Uranium',cat:'actinide',mass:'238.03',group:3,period:7,config:'[Rn] 5f³6d¹7s²',state:'Fest',melt:'1135°C',boil:'4131°C',desc:'Brennstoff für Kernkraftwerke. Dichtes Metall mit schwacher natürlicher Radioaktivität.'},
+  {n:93,sym:'Np',name:'Neptunium',latin:'Neptunium',cat:'actinide',mass:'(237)',group:3,period:7,config:'[Rn] 5f⁴6d¹7s²',state:'Fest',melt:'644°C',boil:'3902°C',desc:'Erstes transuranes Element. Entsteht als Nebenprodukt in Kernreaktoren. Stark radioaktiv.'},
+  {n:94,sym:'Pu',name:'Plutonium',latin:'Plutonium',cat:'actinide',mass:'(244)',group:3,period:7,config:'[Rn] 5f⁶7s²',state:'Fest',melt:'640°C',boil:'3228°C',desc:'Brennstoff für Atomwaffen und Kernkraftwerke. Pu-238 treibt Raumsonden wie Voyager an.'},
+  {n:95,sym:'Am',name:'Americium',latin:'Americium',cat:'actinide',mass:'(243)',group:3,period:7,config:'[Rn] 5f⁷7s²',state:'Fest',melt:'1176°C',boil:'2607°C',desc:'Am-241 wird in Rauchmeldern eingesetzt. Synthetisch hergestelltes Element.'},
+  {n:96,sym:'Cm',name:'Curium',latin:'Curium',cat:'actinide',mass:'(247)',group:3,period:7,config:'[Rn] 5f⁷6d¹7s²',state:'Fest',melt:'1340°C',boil:'3110°C',desc:'Nach Marie und Pierre Curie benannt. Synthetisch, stark radioaktiv, für Raumfahrt-RTGs genutzt.'},
+  {n:97,sym:'Bk',name:'Berkelium',latin:'Berkelium',cat:'actinide',mass:'(247)',group:3,period:7,config:'[Rn] 5f⁹7s²',state:'Fest',melt:'986°C',boil:'2627°C',desc:'Synthetisches radioaktives Element, benannt nach Berkeley, Californien.'},
+  {n:98,sym:'Cf',name:'Californium',latin:'Californium',cat:'actinide',mass:'(251)',group:3,period:7,config:'[Rn] 5f¹⁰7s²',state:'Fest',melt:'900°C',boil:'1745°C',desc:'Intensivster Neutronenstrahler. Verwendet zur Behandlung bestimmter Krebsarten.'},
+  {n:99,sym:'Es',name:'Einsteinium',latin:'Einsteinium',cat:'actinide',mass:'(252)',group:3,period:7,config:'[Rn] 5f¹¹7s²',state:'Fest',melt:'860°C',boil:'996°C',desc:'Nach Albert Einstein benannt. Entdeckt im Fallout des ersten Wasserstoffbombentests 1952.'},
+  {n:100,sym:'Fm',name:'Fermium',latin:'Fermium',cat:'actinide',mass:'(257)',group:3,period:7,config:'[Rn] 5f¹²7s²',state:'Fest',melt:'1527°C',boil:'—',desc:'Nach Enrico Fermi benannt. Synthetisch und kurzlebig. Letztes Element das in messbaren Mengen erzeugt wird.'},
+  {n:101,sym:'Md',name:'Mendelevium',latin:'Mendelevium',cat:'actinide',mass:'(258)',group:3,period:7,config:'[Rn] 5f¹³7s²',state:'Fest',melt:'827°C',boil:'—',desc:'Nach Dmitri Mendeleev, dem Schöpfer des Periodensystems, benannt.'},
+  {n:102,sym:'No',name:'Nobelium',latin:'Nobelium',cat:'actinide',mass:'(259)',group:3,period:7,config:'[Rn] 5f¹⁴7s²',state:'Fest',melt:'827°C',boil:'—',desc:'Nach Alfred Nobel benannt. Extrem instabiles synthetisches Element.'},
+  {n:103,sym:'Lr',name:'Lawrencium',latin:'Lawrencium',cat:'actinide',mass:'(262)',group:3,period:7,config:'[Rn] 5f¹⁴7s²7p¹',state:'Fest',melt:'1627°C',boil:'—',desc:'Nach Ernest Lawrence benannt. Letztes Actinoid. Nur in Teilchenbeschleunigern erzeugt.'},
+  // Period 7 (after actinides)
+  {n:104,sym:'Rf',name:'Rutherfordium',latin:'Rutherfordium',cat:'transition',mass:'(267)',group:4,period:7,config:'[Rn] 5f¹⁴6d²7s²',state:'Fest',melt:'—',boil:'—',desc:'Superschweres synthetisches Element, benannt nach Ernest Rutherford.'},
+  {n:105,sym:'Db',name:'Dubnium',latin:'Dubnium',cat:'transition',mass:'(268)',group:5,period:7,config:'[Rn] 5f¹⁴6d³7s²',state:'Fest',melt:'—',boil:'—',desc:'Synthetisches Element, benannt nach dem russischen Kernforschungszentrum Dubna.'},
+  {n:106,sym:'Sg',name:'Seaborgium',latin:'Seaborgium',cat:'transition',mass:'(271)',group:6,period:7,config:'[Rn] 5f¹⁴6d⁴7s²',state:'Fest',melt:'—',boil:'—',desc:'Nach Glenn T. Seaborg benannt, der 10 Transuranelemente mitentdeckte.'},
+  {n:107,sym:'Bh',name:'Bohrium',latin:'Bohrium',cat:'transition',mass:'(272)',group:7,period:7,config:'[Rn] 5f¹⁴6d⁵7s²',state:'Fest',melt:'—',boil:'—',desc:'Nach Niels Bohr, Begründer der Quantenmechanik, benannt.'},
+  {n:108,sym:'Hs',name:'Hassium',latin:'Hassium',cat:'transition',mass:'(270)',group:8,period:7,config:'[Rn] 5f¹⁴6d⁶7s²',state:'Fest',melt:'—',boil:'—',desc:'Benannt nach dem deutschen Bundesland Hessen. Am GSI Helmholtzzentrum erstmals synthetisiert.'},
+  {n:109,sym:'Mt',name:'Meitnerium',latin:'Meitnerium',cat:'unknown',mass:'(276)',group:9,period:7,config:'[Rn] 5f¹⁴6d⁷7s²',state:'Fest',melt:'—',boil:'—',desc:'Nach Lise Meitner benannt, die wesentlich zur Entdeckung der Kernspaltung beitrug.'},
+  {n:110,sym:'Ds',name:'Darmstadtium',latin:'Darmstadtium',cat:'unknown',mass:'(281)',group:10,period:7,config:'[Rn] 5f¹⁴6d⁸7s²',state:'Fest',melt:'—',boil:'—',desc:'Benannt nach der deutschen Stadt Darmstadt, Standort des GSI Helmholtzzentrums.'},
+  {n:111,sym:'Rg',name:'Roentgenium',latin:'Roentgenium',cat:'unknown',mass:'(280)',group:11,period:7,config:'[Rn] 5f¹⁴6d⁹7s²',state:'Fest',melt:'—',boil:'—',desc:'Nach Wilhelm Conrad Röntgen, Entdecker der Röntgenstrahlen, benannt.'},
+  {n:112,sym:'Cn',name:'Copernicium',latin:'Copernicium',cat:'transition',mass:'(285)',group:12,period:7,config:'[Rn] 5f¹⁴6d¹⁰7s²',state:'Gas?',melt:'—',boil:'—',desc:'Nach Nicolaus Copernicus benannt. Möglicherweise ein Gas bei Raumtemperatur.'},
+  {n:113,sym:'Nh',name:'Nihonium',latin:'Nihonium',cat:'post-transition',mass:'(284)',group:13,period:7,config:'[Rn] 5f¹⁴6d¹⁰7s²7p¹',state:'Fest',melt:'—',boil:'—',desc:'Erstes in Asien entdecktes Element, benannt nach dem japanischen Namen für Japan.'},
+  {n:114,sym:'Fl',name:'Flerovium',latin:'Flerovium',cat:'post-transition',mass:'(289)',group:14,period:7,config:'[Rn] 5f¹⁴6d¹⁰7s²7p²',state:'Gas?',melt:'—',boil:'—',desc:'Nach dem Flerov-Labor für Kernreaktionen in Dubna benannt.'},
+  {n:115,sym:'Mc',name:'Moscovium',latin:'Moscovium',cat:'post-transition',mass:'(288)',group:15,period:7,config:'[Rn] 5f¹⁴6d¹⁰7s²7p³',state:'Fest',melt:'—',boil:'—',desc:'Nach Moskau, der Hauptstadt Russlands, benannt.'},
+  {n:116,sym:'Lv',name:'Livermorium',latin:'Livermorium',cat:'post-transition',mass:'(293)',group:16,period:7,config:'[Rn] 5f¹⁴6d¹⁰7s²7p⁴',state:'Fest',melt:'—',boil:'—',desc:'Nach dem Lawrence Livermore National Laboratory in Californien benannt.'},
+  {n:117,sym:'Ts',name:'Tenness',latin:'Tennessine',cat:'halogen',mass:'(294)',group:17,period:7,config:'[Rn] 5f¹⁴6d¹⁰7s²7p⁵',state:'Fest',melt:'—',boil:'—',desc:'Benannt nach dem US-Bundesstaat Tennessee, Heimat mehrerer Kernforschungseinrichtungen.'},
+  {n:118,sym:'Og',name:'Oganesson',latin:'Oganesson',cat:'noble',mass:'(294)',group:18,period:7,config:'[Rn] 5f¹⁴6d¹⁰7s²7p⁶',state:'Fest?',melt:'—',boil:'—',desc:'Schwerste bekannte Element. Nach dem russischen Physiker Yuri Oganessian benannt.'},
+];
+
+// Grid layout: [n, col, row]
+// row 1 = period 1, etc. Lanthanides/actinides in special rows
+const elementMap = {};
+ELEMENTS.forEach(el => { elementMap[el.n] = el; });
+
+// Build grid positions
+// Standard grid: 18 cols x 7 rows (periods 1-7), then 2 extra rows for lanthanides/actinides
+const positions = {}; // n -> {col, row}
+
+// Period 1
+positions[1] = {col:1,row:1}; positions[2] = {col:18,row:1};
+// Period 2
+[3,4].forEach((n,i) => positions[n]={col:i+1,row:2});
+[5,6,7,8,9,10].forEach((n,i) => positions[n]={col:i+13,row:2});
+// Period 3
+[11,12].forEach((n,i) => positions[n]={col:i+1,row:3});
+[13,14,15,16,17,18].forEach((n,i) => positions[n]={col:i+13,row:3});
+// Period 4
+[19,20].forEach((n,i) => positions[n]={col:i+1,row:4});
+[21,22,23,24,25,26,27,28,29,30].forEach((n,i) => positions[n]={col:i+3,row:4});
+[31,32,33,34,35,36].forEach((n,i) => positions[n]={col:i+13,row:4});
+// Period 5
+[37,38].forEach((n,i) => positions[n]={col:i+1,row:5});
+[39,40,41,42,43,44,45,46,47,48].forEach((n,i) => positions[n]={col:i+3,row:5});
+[49,50,51,52,53,54].forEach((n,i) => positions[n]={col:i+13,row:5});
+// Period 6
+[55,56].forEach((n,i) => positions[n]={col:i+1,row:6});
+// La placeholder at col 3
+[72,73,74,75,76,77,78,79,80,81].forEach((n,i) => positions[n]={col:i+4,row:6});
+[82,83,84,85,86].forEach((n,i) => positions[n]={col:i+13,row:6});
+// Period 7
+[87,88].forEach((n,i) => positions[n]={col:i+1,row:7});
+// Ac placeholder at col 3
+[104,105,106,107,108,109,110,111,112,113].forEach((n,i) => positions[n]={col:i+4,row:7});
+[114,115,116,117,118].forEach((n,i) => positions[n]={col:i+13,row:7});
+// Lanthanides row 9
+[57,58,59,60,61,62,63,64,65,66,67,68,69,70,71].forEach((n,i) => positions[n]={col:i+3,row:9});
+// Actinides row 10
+[89,90,91,92,93,94,95,96,97,98,99,100,101,102,103].forEach((n,i) => positions[n]={col:i+3,row:10});
+
+const grid = document.getElementById('grid');
+const ROWS = 10, COLS = 18;
+
+// Create legend
+const legend = document.getElementById('legend');
+let activeFilter = null;
+Object.entries(CATEGORIES).forEach(([key, cat]) => {
+  const item = document.createElement('div');
+  item.className = 'legend-item';
+  item.dataset.cat = key;
+  item.innerHTML = `<div class="legend-dot" style="background:${cat.color}"></div>${cat.label}`;
+  item.addEventListener('click', () => {
+    if (activeFilter === key) {
+      activeFilter = null;
+      item.classList.remove('active');
+      applyFilter(null);
+    } else {
+      document.querySelectorAll('.legend-item').forEach(i => i.classList.remove('active'));
+      activeFilter = key;
+      item.classList.add('active');
+      applyFilter(key);
+    }
+  });
+  legend.appendChild(item);
+});
+
+function applyFilter(cat) {
+  document.querySelectorAll('.element[data-n]').forEach(el => {
+    if (!cat) { el.classList.remove('dimmed','highlighted'); return; }
+    if (el.dataset.cat === cat) { el.classList.remove('dimmed'); el.classList.add('highlighted'); }
+    else { el.classList.add('dimmed'); el.classList.remove('highlighted'); }
+  });
+}
+
+// Build inverted position map
+const cellMap = {};
+for (let r = 1; r <= ROWS; r++) {
+  for (let c = 1; c <= COLS; c++) {
+    cellMap[`${r},${c}`] = null;
+  }
+}
+Object.entries(positions).forEach(([n, pos]) => {
+  cellMap[`${pos.row},${pos.col}`] = parseInt(n);
+});
+
+// Render grid
+for (let row = 1; row <= ROWS; row++) {
+  for (let col = 1; col <= COLS; col++) {
+    const n = cellMap[`${row},${col}`];
+    const cell = document.createElement('div');
+
+    // Spacer between period 7 and lanthanides
+    if (row === 8) {
+      cell.className = 'element empty';
+      grid.appendChild(cell);
+      continue;
+    }
+
+    // Lanthanide/actinide placeholder
+    if ((row === 6 && col === 3) || (row === 7 && col === 3)) {
+      cell.className = 'element spacer-label';
+      cell.textContent = row === 6 ? '57-71' : '89-103';
+      grid.appendChild(cell);
+      continue;
+    }
+
+    if (!n) {
+      cell.className = 'element empty';
+      grid.appendChild(cell);
+      continue;
+    }
+
+    const el = elementMap[n];
+    const cat = CATEGORIES[el.cat] || CATEGORIES['unknown'];
+    cell.className = 'element';
+    cell.dataset.n = n;
+    cell.dataset.cat = el.cat;
+    cell.style.setProperty('--el-color', cat.color);
+    cell.style.setProperty('--el-glow', cat.color + '33');
+    cell.innerHTML = `
+      <div class="el-number">${n}</div>
+      <div class="el-symbol">${el.sym}</div>
+      <div class="el-name">${el.name}</div>
+      <div class="el-mass">${el.mass}</div>
+    `;
+    cell.addEventListener('click', () => openModal(el));
+    grid.appendChild(cell);
+  }
+}
+
+// Modal
+const overlay = document.getElementById('modal-overlay');
+const modalClose = document.getElementById('modal-close');
+
+function openModal(el) {
+  const cat = CATEGORIES[el.cat] || CATEGORIES['unknown'];
+  document.getElementById('m-number').textContent = el.n;
+  document.getElementById('m-symbol').textContent = el.sym;
+  document.getElementById('m-name').textContent = el.name;
+  document.getElementById('m-latin').textContent = el.latin !== el.name ? el.latin : '';
+  document.getElementById('m-badge').textContent = cat.label;
+  document.getElementById('m-badge').style.background = cat.color;
+  document.getElementById('m-mass').textContent = el.mass + ' u';
+  document.getElementById('m-gp').textContent = `${el.group} / ${el.period}`;
+  document.getElementById('m-config').textContent = el.config;
+  document.getElementById('m-state').textContent = el.state;
+  document.getElementById('m-melt').textContent = el.melt;
+  document.getElementById('m-boil').textContent = el.boil;
+  document.getElementById('m-desc').textContent = el.desc;
+
+  const block = document.getElementById('m-symbol-block');
+  block.style.setProperty('--el-color', cat.color);
+  block.style.setProperty('--el-glow', cat.color + '44');
+
+  overlay.classList.add('open');
+}
+
+modalClose.addEventListener('click', () => overlay.classList.remove('open'));
+overlay.addEventListener('click', e => { if (e.target === overlay) overlay.classList.remove('open'); });
+document.addEventListener('keydown', e => { if (e.key === 'Escape') overlay.classList.remove('open'); });
+
+// Search
+document.getElementById('search').addEventListener('input', function() {
+  const q = this.value.toLowerCase().trim();
+  document.querySelectorAll('.element[data-n]').forEach(cell => {
+    const n = parseInt(cell.dataset.n);
+    const el = elementMap[n];
+    if (!q) { cell.classList.remove('dimmed','highlighted'); return; }
+    const match = el.name.toLowerCase().includes(q) || el.sym.toLowerCase().includes(q) || String(el.n).includes(q) || el.latin.toLowerCase().includes(q);
+    if (match) { cell.classList.remove('dimmed'); cell.classList.add('highlighted'); }
+    else { cell.classList.add('dimmed'); cell.classList.remove('highlighted'); }
+  });
+  if (!q && !activeFilter) { document.querySelectorAll('.element').forEach(c => c.classList.remove('dimmed','highlighted')); }
+});
+</script>
+</body>
+</html>
